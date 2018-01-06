@@ -80,6 +80,8 @@ if(flag)
 #define PBTN_LCLK				0x02		///< long click
 #define PBTN_DCLK				0x03		///< double click
 #define PBTN_TCLK				0x04		///< triple click
+#define PBTN_DOWN				0x05		///< button state down
+#define PBTN_ENDN				0x06		///< button state changed to up
 /** UART packet received
  *
  * Event Data: (UART PACKET)

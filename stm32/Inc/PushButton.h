@@ -74,8 +74,16 @@ main()
 #define PUSHBTN_TO_LONG			10	// 10 * PUSHBTN_TMR_PERIOD
 #define PUSHBTN_TO_MAX			255	// maximum duration count
 
+typedef enum
+{
+	PUSHBTN_MODE_CLICK = 0,			///< detect change
+	PUSHBTN_MODE_UDOWN				///< detect level
+} pushbtn_mode;
+
 /// Initialize the pushbutton data
 void PushButton_Init(uint8_t mask);
+/// Switch detect mode between CLICK and UDOWN
+void PushButton_SetMode(pushbtn_mode mode);
 /// Read all pushbutton state and return them in a uint8_t form
 uint8_t PushButton_Read(void) __attribute__((weak));
 

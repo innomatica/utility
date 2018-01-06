@@ -15,6 +15,7 @@ typedef struct
 	uint8_t click[8];		///< number of button click
 	uint8_t duration[8];	///< time passed since last click
 	uint8_t mask;			///< mask for buttons to be ignored
+	uint8_t mode;			///< click mode / updown mode
 } pushbtn_param;
 
 pushbtn_param pp;
@@ -38,6 +39,7 @@ void PushButton_Init(uint8_t mask)
 	pp.old_state = pp.new_state = 0;
 	pp.mask = mask;
 
+	// clear log
 	for(i = 0; i < 8; i++)
 	{
 		PushButton_ClearLog(i);
@@ -45,6 +47,29 @@ void PushButton_Init(uint8_t mask)
 
 	// register pushbutton main routine
 	UsrTimer_Set(PUSHBTN_TMR_PERIOD, 0, PushButton_Routine);
+}
+
+/** In CLICK mode, the change of the button state is detected. In UDOWN mode
+ * the up or down state of the button is detected.
+ *
+ * \param mode either PUSHBTN_MODE_CLICK or PUSHBTN_MODE_UDOWN
+ */
+void PushButton_SetMode(pushbtn_mode mode)
+{
+	int i;
+
+	// clear data
+	pp.old_state = pp.new_state = 0;
+
+	// clear log
+	for(i = 0; i < 8; i++)
+	{
+		PushButton_ClearLog(i);
+	}
+
+	// change mode
+	pp.mode = mode;
+
 }
 
 /** Clear the duration parameter and the click count parameter of the button.
@@ -56,7 +81,6 @@ void PushButton_ClearLog(uint8_t index)
 		pp.click[index] = pp.duration[index] = 0;
 	}
 }
-
 
 /** Main routine
  */
@@ -80,94 +104,126 @@ void PushButton_Routine()
 			continue;
 		}
 
-		// the button state changed
-		if((diff_state >> i) & 0x01)
+		// on-off mode
+		if(pp.mode == PUSHBTN_MODE_UDOWN)
 		{
-			// (re)start duration count
-			pp.duration[i] = 1;
-
-			// the button released
-			if(((pp.new_state >> i) & 0x01) == 0x00)
+			// the button pressed
+			if(((pp.new_state >> i) & 0x01) == 0x01)
 			{
-				if(flag)
-				{
-					flag = false;
-					//
-					pp.duration[i] = 0;
-				}
-				else
-				{
-					// increase click count
-					pp.click[i]++;
-				}
+				event[0] = EVT_PBTN_INPUT;
+				event[1] = (uint8_t)(i+1);
+				event[2] = PBTN_DOWN;
+	
+				// post the event as long as the button is pressed down
+				Evt_EnQueue(event);
 			}
-		}
-		// button state not changed
-		else
-		{
-			// increase duration count
-			if((pp.duration[i] > 0) && 
-					(pp.duration[i] < PUSHBTN_TO_MAX))
-			{
-				pp.duration[i]++;
-			}
-		}
-
-		// triple click
-		if(pp.click[i] >= 3)
-		{
-			// triple click event
-			event[0] = EVT_PBTN_INPUT;
-			event[1] = (uint8_t)(i+1);
-			event[2] = PBTN_TCLK;
-			// post event
-			Evt_EnQueue(event);
-
-			// clear log
-			PushButton_ClearLog(i);
-		}
-		// button relased and short timeout passed
-		else if((pp.duration[i] > PUSHBTN_TO_SHORT) && 
-				(((pp.new_state >> i) & 0x01) == 0x00))
-		{
-			event[0] = EVT_PBTN_INPUT;
-			event[1] = (uint8_t)(i+1);
-
-			// double click
-			if(pp.click[i] == 2)
-			{
-				// double click event
-				event[2] = PBTN_DCLK;
-			}
-			// single click
+			// button released
 			else
 			{
-				// single click event
-				event[2] = PBTN_SCLK;
+				// actually it has just risen
+				if(((pp.old_state >> i) & 0x01) == 0x01)
+				{
+					event[0] = EVT_PBTN_INPUT;
+					event[1] = (uint8_t)(i+1);
+					event[2] = PBTN_ENDN;
+	
+					// post the event to indicate the end of the down state
+					Evt_EnQueue(event);
+				}
 			}
-			// post the event
-			Evt_EnQueue(event);
-
-			// clear log
-			PushButton_ClearLog(i);
 		}
-		// button pressed and long timeout passed
-		else if((pp.duration[i] > PUSHBTN_TO_LONG) && 
-				(((pp.new_state >> i) & 0x01) == 0x01))
+		// click mode
+		else
 		{
-			// long click event
-			event[0] = EVT_PBTN_INPUT;
-			event[1] = (uint8_t)(i+1);
-			event[2] = PBTN_LCLK;
+			// the button state changed
+			if((diff_state >> i) & 0x01)
+			{
+				// (re)start duration count
+				pp.duration[i] = 1;
+	
+				// the button released
+				if(((pp.new_state >> i) & 0x01) == 0x00)
+				{
+					if(flag)
+					{
+						flag = false;
+						//
+						pp.duration[i] = 0;
+					}
+					else
+					{
+						// increase click count
+						pp.click[i]++;
+					}
+				}
+			}
+			// button state not changed
+			else
+			{
+				// increase duration count
+				if((pp.duration[i] > 0) && 
+						(pp.duration[i] < PUSHBTN_TO_MAX))
+				{
+					pp.duration[i]++;
+				}
+			}
+	
+			// triple click
+			if(pp.click[i] >= 3)
+			{
+				// triple click event
+				event[0] = EVT_PBTN_INPUT;
+				event[1] = (uint8_t)(i+1);
+				event[2] = PBTN_TCLK;
+				// post event
+				Evt_EnQueue(event);
+	
+				// clear log
+				PushButton_ClearLog(i);
+			}
+			// button relased and short timeout passed
+			else if((pp.duration[i] > PUSHBTN_TO_SHORT) && 
+					(((pp.new_state >> i) & 0x01) == 0x00))
+			{
+				event[0] = EVT_PBTN_INPUT;
+				event[1] = (uint8_t)(i+1);
 
-			// post the event
-			Evt_EnQueue(event);
+				// double click
+				if(pp.click[i] == 2)
+				{
+					// double click event
+					event[2] = PBTN_DCLK;
+				}
+				// single click
+				else
+				{
+					// single click event
+					event[2] = PBTN_SCLK;
+				}
+				// post the event
+				Evt_EnQueue(event);
 
-			// clear log
-			PushButton_ClearLog(i);
-
-			// raise flag: this will prevent false detect after long click
-			flag = true;
+				// clear log
+				PushButton_ClearLog(i);
+			}
+			// button pressed and long timeout passed
+			else if((pp.duration[i] > PUSHBTN_TO_LONG) && 
+					(((pp.new_state >> i) & 0x01) == 0x01))
+			{
+				// long click event
+				event[0] = EVT_PBTN_INPUT;
+				event[1] = (uint8_t)(i+1);
+				event[2] = PBTN_LCLK;
+	
+				// post the event
+				Evt_EnQueue(event);
+	
+				// clear log
+				PushButton_ClearLog(i);
+	
+				// raise flag: this will prevent false detect after long click
+				flag = true;
+			}
 		}
 	}
 	// update pin state

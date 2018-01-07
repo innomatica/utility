@@ -48,7 +48,10 @@ bool Evt_EnQueue(uint8_t *event)
 
 /**
  * Retrieve the oldest event from the queue. If the return value is false
- * the retrieved event data should be ignored.
+ * the retrieved event data should be ignored. Note that the access of the
+ * queue is protected by HAL_SuspendTick / Hal_ResumeTick. If any other 
+ * interrupt service routine were to access the queue through Evt_EnQueue,
+ * corresponding interrupt should be suspended here.
  *
  * \param  event data in an array of uint8_t
  * \return false if the queue is empty
@@ -56,22 +59,30 @@ bool Evt_EnQueue(uint8_t *event)
 bool Evt_DeQueue(uint8_t *event)
 {
 	uint8_t i;
+	bool flag = false;
 
-	// queue is empty
-	if(evt_queue.tail == evt_queue.head)
+	// suspend systick
+	HAL_SuspendTick();
+
+	// queue is not empty
+	if(evt_queue.tail != evt_queue.head)
 	{
-		return false;
+		// copy event bytes into the buffer
+		for(i = 0; i < EVT_QWIDTH; i++)
+		{
+			event[i] = evt_queue.buff[evt_queue.tail][i];
+		}
+		// move to the next position
+		evt_queue.tail = ADVANCE_QPTR(evt_queue.tail);
+		// set flag
+		flag = true;
 	}
 
-	// copy event bytes into the buffer
-	for(i = 0; i < EVT_QWIDTH; i++)
-	{
-		event[i] = evt_queue.buff[evt_queue.tail][i];
-	}
-	// move to the next position
-	evt_queue.tail = ADVANCE_QPTR(evt_queue.tail);
+	// resume tick
+	HAL_ResumeTick();
 
-	return true;
+	// return with the flag
+	return flag;
 }
 
 /**

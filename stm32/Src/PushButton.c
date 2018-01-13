@@ -16,6 +16,7 @@ typedef struct
 	uint8_t duration[8];	///< time passed since last click
 	uint8_t mask;			///< mask for buttons to be ignored
 	uint8_t mode;			///< click mode / updown mode
+	bool flag;				///< internal flag to prevent false detection
 } pushbtn_param;
 
 pushbtn_param pp;
@@ -38,6 +39,8 @@ void PushButton_Init(uint8_t mask)
 	// clear data
 	pp.old_state = pp.new_state = 0;
 	pp.mask = mask;
+	pp.mode = 0;
+	pp.flag = false;
 
 	// clear log
 	for(i = 0; i < 8; i++)
@@ -53,13 +56,17 @@ void PushButton_Init(uint8_t mask)
  * the up or down state of the button is detected.
  *
  * \param mode either PUSHBTN_MODE_CLICK or PUSHBTN_MODE_UDOWN
+ * \param flag true if the button whose mode is changes is currently being
+ *			pressed.
  */
-void PushButton_SetMode(pushbtn_mode mode)
+void PushButton_SetMode(uint8_t mode, bool flag)
 {
 	int i;
 
 	// clear data
 	pp.old_state = pp.new_state = 0;
+	// this looks weird but correct
+	pp.flag = !flag;
 
 	// clear log
 	for(i = 0; i < 8; i++)
@@ -69,7 +76,6 @@ void PushButton_SetMode(pushbtn_mode mode)
 
 	// change mode
 	pp.mode = mode;
-
 }
 
 /** Clear the duration parameter and the click count parameter of the button.
@@ -89,7 +95,6 @@ void PushButton_Routine()
 	int i;
 	uint8_t diff_state;
 	uint8_t event[EVT_QWIDTH];
-	static bool flag = false;
 
 	pp.new_state = PushButton_Read();
 
@@ -104,8 +109,8 @@ void PushButton_Routine()
 			continue;
 		}
 
-		// on-off mode
-		if(pp.mode == PUSHBTN_MODE_UDOWN)
+		// up-down mode
+		if(((pp.mode >> i) & 0x01)  == PUSHBTN_MODE_UDOWN)
 		{
 			// the button pressed
 			if(((pp.new_state >> i) & 0x01) == 0x01)
@@ -144,9 +149,9 @@ void PushButton_Routine()
 				// the button released
 				if(((pp.new_state >> i) & 0x01) == 0x00)
 				{
-					if(flag)
+					if(pp.flag)
 					{
-						flag = false;
+						pp.flag = false;
 						//
 						pp.duration[i] = 0;
 					}
@@ -222,7 +227,7 @@ void PushButton_Routine()
 				PushButton_ClearLog(i);
 	
 				// raise flag: this will prevent false detect after long click
-				flag = true;
+				pp.flag = true;
 			}
 		}
 	}

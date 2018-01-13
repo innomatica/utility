@@ -6,6 +6,9 @@
 
 #include "EvtQueue.h"
 
+extern void HAL_SuspendTick(void);
+extern void HAL_ResumeTick(void);
+
 #define ADVANCE_QPTR(x)     ((x+1) % EVT_QDEPTH)
 
 static struct

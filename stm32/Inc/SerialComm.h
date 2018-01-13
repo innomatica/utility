@@ -65,9 +65,11 @@ typedef enum
 #define RPT_U32XXX			0x85    ///< report with uint16_t data
 #define RPT_S32XXX			0x86    ///< report with int16_t data
 
+/// Initializie SerialComm
+void SerialComm_Init(void);
 /// Packet decoding state machine
-pkt_status SerialPacketDecoder(uint8_t byte, uint8_t *buffer, int *size);
+pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size);
 /// Packet encoder
-int SerialPacketEncoder(uint8_t *buffer, int size, uint8_t *packet);
+int SerialComm_Encoder(uint8_t *buffer, int size, uint8_t *packet);
 
 #endif // __SERIAL_COMM_H__

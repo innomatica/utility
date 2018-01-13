@@ -12,6 +12,17 @@
 #define PKT_STATE_PLD			2
 #define PKT_STATE_CSM			3
 
+static void SerialComm_RxRoutine(void);
+
+void SerialComm_Init()
+{
+}
+
+void SerialComm_RxRoutine()
+{
+}
+
+
 /**
  * This function runs packet decoding state machine. It takes stream of serial
  * data one byte at a time and returns the current state of the state machine.
@@ -43,7 +54,7 @@ if(UART_RX_flag_is_set)
  * \param   size size of the payload
  * \return  pkt_status status of the state machine
  */
-pkt_status SerialPacketDecoder(uint8_t byte, uint8_t *buffer, int *size)
+pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
 {
 	static uint8_t state = PKT_STATE_HDR;
 	static uint8_t len = 0;
@@ -167,7 +178,7 @@ buffer[3] = (value >> 8) & 0xff;
 buffer[4] = (value) & 0xff;
 
 # construct a packet
-size = SerialPacketEncoder(buffer, 5, packet);
+size = SerialComm_Encoder(buffer, 5, packet);
 \endcode
  *
  * \param   buffer payload data
@@ -175,7 +186,7 @@ size = SerialPacketEncoder(buffer, 5, packet);
  * \param   packet resulting packet
  * \return  int the size of the packet
  */
-int SerialPacketEncoder(uint8_t *buffer, int size, uint8_t *packet)
+int SerialComm_Encoder(uint8_t *buffer, int size, uint8_t *packet)
 {
 	uint8_t csum = 0;
 	int i;

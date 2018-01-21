@@ -42,6 +42,8 @@ typedef void (* usrtimer_callback)(void);
 
 /// Initialize all timers
 void UsrTimer_Init();
+/// Enable or disable main routine
+void UsrTimer_Enable(bool flag);
 /// Clear the timer
 void UsrTimer_Clear(uint32_t index);
 /// Pause the timer 

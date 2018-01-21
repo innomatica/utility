@@ -58,7 +58,7 @@ if(flag)
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "EvtDefs.h"
+#include "myevents.h"
 
 /** Maximum number of events the queue can hold.  This number should be less
  * than 256.
@@ -71,9 +71,9 @@ if(flag)
 
 
 /// Register a new event
-bool Evt_EnQueue(uint8_t *cmd);
+bool Evt_EnQueue(uint8_t *event);
 /// Checkout the oldest event
-bool Evt_DeQueue(uint8_t *cmd);
+bool Evt_DeQueue(uint8_t *event);
 /// Initialize the event queue
 void Evt_InitQueue(void);
 

@@ -26,6 +26,8 @@ static struct
 	usrtimer_callback callback;
 } USRTimers[MAX_USRTIMER];
 
+volatile bool usrtimer_enable = true;
+
 /** Timer structure will be cleared.
  */
 void UsrTimer_Init()
@@ -37,6 +39,13 @@ void UsrTimer_Init()
 	{
 		UsrTimer_Clear(i);
 	}
+}
+
+/** Call this function to pause or to resume all timers at once.
+ */
+void UsrTimer_Enable(bool flag)
+{
+	usrtimer_enable = flag;
 }
 
 /** The unit of the period and the duration is determined by the period of
@@ -157,6 +166,11 @@ void UsrTimer_Resume(uint32_t index)
 void UsrTimer_Routine(void)
 {
 	int i;
+
+	if(!usrtimer_enable)
+	{
+		return;
+	}
 
 	// increase the counter value of each timer
 	for(i = 0; i < MAX_USRTIMER; i++)

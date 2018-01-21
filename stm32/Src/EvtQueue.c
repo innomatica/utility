@@ -5,6 +5,7 @@
  */
 
 #include "EvtQueue.h"
+#include "UsrTimer.h"
 
 extern void HAL_SuspendTick(void);
 extern void HAL_ResumeTick(void);
@@ -64,8 +65,8 @@ bool Evt_DeQueue(uint8_t *event)
 	uint8_t i;
 	bool flag = false;
 
-	// suspend systick
-	HAL_SuspendTick();
+	// disable all timers
+	UsrTimer_Enable(false);
 
 	// queue is not empty
 	if(evt_queue.tail != evt_queue.head)
@@ -81,8 +82,8 @@ bool Evt_DeQueue(uint8_t *event)
 		flag = true;
 	}
 
-	// resume tick
-	HAL_ResumeTick();
+	// enable all timers
+	UsrTimer_Enable(true);
 
 	// return with the flag
 	return flag;

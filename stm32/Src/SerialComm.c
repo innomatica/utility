@@ -12,16 +12,6 @@
 #define PKT_STATE_PLD			2
 #define PKT_STATE_CSM			3
 
-static void SerialComm_RxRoutine(void);
-
-void SerialComm_Init()
-{
-}
-
-void SerialComm_RxRoutine()
-{
-}
-
 
 /**
  * This function runs packet decoding state machine. It takes stream of serial
@@ -36,30 +26,27 @@ void SerialComm_RxRoutine()
  *
 \code
 uint8_t buffer[MAX_PKTSIZE];
-int size;
 pkt_status pstatus;
 
 if(UART_RX_flag_is_set)
 {
     // new data byte is in new_byte
-    if(PKT_RECEIVED == SerialPacketDecoder(new_byte, buffer, &size))
+    if(PKT_RECEIVED == SerialPacketDecoder(new_byte, buffer))
     {
-        // packet data (payload) is in the buffer whose length is size byte
+        // packet data is in the buffer
     }
 }
 \endcode
  *
  * \param	byte received byte
- * \param   buffer payload will be retured here
- * \param   size size of the payload
+ * \param   buffer packet will be retured here
  * \return  pkt_status status of the state machine
  */
-pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
+pkt_status SerialComm_Decoder(uint8_t byte, uint8_t *buffer)
 {
 	static uint8_t state = PKT_STATE_HDR;
-	static uint8_t len = 0;
 	static uint8_t index = 0;
-	static uint8_t payload[MAX_PAYLOAD] = {0};
+	static uint8_t packet[MAX_PKTSIZE] = {0};
 	static uint8_t csum = 0;
 
 	int i;
@@ -69,6 +56,8 @@ pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
 	{
 		if(byte == PKT_HEADR)
 		{
+			// store the header byte
+			packet[0] = byte;
 			// proceed to the next state
 			state = PKT_STATE_LEN;
 		}
@@ -91,11 +80,11 @@ pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
 	// waiting for the length byte
 	else if(state == PKT_STATE_LEN)
 	{
-		// save the length of the payload
-		len = byte;
+		// store the length byte
+		packet[1] = byte;
 
-		// invalid size
-		if(len > MAX_PAYLOAD)
+		// invalid payload size
+		if(byte > MAX_PAYLOAD)
 		{
 			// start all over
 			state = PKT_STATE_HDR;
@@ -105,15 +94,10 @@ pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
 		// length byte is valid
 		else
 		{
-			// clear index
-			index = 0;
+			// reset index
+			index = 2;
 			// clear chesum byte
 			csum = 0;
-			// clear payload buffer
-			for(i = 0; i < MAX_PAYLOAD; i++)
-			{
-				payload[i] = 0;
-			}
 			// proceed to the next state
 			state = PKT_STATE_PLD;
 		}
@@ -121,12 +105,12 @@ pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
 	// waiting for the payload
 	else if(state == PKT_STATE_PLD)
 	{
-		// collecte data
-		payload[index++] = byte;
+		// collect data
+		packet[index++] = byte;
 		// process checksum
 		csum ^= byte;
 		// proceed to the next if all payload is collected
-		if(index == len)
+		if(index == (packet[1] + 2))
 		{
 			state = PKT_STATE_CSM;
 		}
@@ -134,17 +118,17 @@ pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
 	// waiting for the checksum byte
 	else if(state == PKT_STATE_CSM)
 	{
+		// collect data
+		packet[index] = byte;
 		// checksum matches
 		if(byte == csum)
 		{
-			// copy payload to the buffer
-			for(i = 0; i < len; i++)
+			// copy packet to the buffer
+			for(i = 0; i < packet[1] + 3; i++)
 			{
-				buffer[i] = payload[i];
+				buffer[i] = packet[i];
 			}
-			// size byte
-			*size = (int)len;
-			// start all over
+			// start all over again
 			state = PKT_STATE_HDR;
 			// valid packet arrived
 			return PKT_RECEIVED;
@@ -166,29 +150,28 @@ pkt_status SeriaComm_Decoder(uint8_t byte, uint8_t *buffer, int *size)
  * Construct a packet from a give payload
  *
 \code
-int size;
-uint8_t buffer[5];
-uint8_t packet[MAX_PKTSIZE];
+uint8_t payload[5];
 
-# pack signed int32 value in big endian mode
-buffer[0] = RPT_S32XXX;
-buffer[1] = (value >> 24) & 0xff;
-buffer[2] = (value >> 16) & 0xff;
-buffer[3] = (value >> 8) & 0xff;
-buffer[4] = (value) & 0xff;
+# pack signed int32 value in big endian order
+payload[0] = RPT_S32XXX;
+payload[1] = (value >> 24) & 0xff;
+payload[2] = (value >> 16) & 0xff;
+payload[3] = (value >> 8) & 0xff;
+payload[4] = (value) & 0xff;
 
-# construct a packet
-size = SerialComm_Encoder(buffer, 5, packet);
+# send the packet
+SerialComm_SendPacket(payload, 5, packet);
 \endcode
  *
- * \param   buffer payload data
+ * \param   payload payload data
  * \param   size size of the payload
  * \param   packet resulting packet
  * \return  int the size of the packet
  */
-int SerialComm_Encoder(uint8_t *buffer, int size, uint8_t *packet)
+void SerialComm_SendPacket(uint8_t *payload, int size)
 {
 	uint8_t csum = 0;
+	uint8_t packet[MAX_PKTSIZE];
 	int i;
 
 	// header
@@ -198,11 +181,12 @@ int SerialComm_Encoder(uint8_t *buffer, int size, uint8_t *packet)
 	// data
 	for(i = 0; i < size; i++)
 	{
-		csum ^= buffer[i];
-		packet[2+i] = buffer[i];
+		csum ^= payload[i];
+		packet[2+i] = payload[i];
 	}
 	// checksum
 	packet[2 + size] = csum;
 
-	return (size + 3);
+	// send the array of bytes
+	SerialComm_SendByteArray(packet, size+3);
 }

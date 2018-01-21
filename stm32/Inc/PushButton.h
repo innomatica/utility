@@ -62,8 +62,8 @@ main()
 \endcode
  */
 
-#ifndef __PUSHBUTTON_H
-#define __PUSHBUTTON_H
+#ifndef __PUSH_BUTTON_H
+#define __PUSH_BUTTON_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -85,4 +85,4 @@ void PushButton_SetMode(uint8_t mode, bool flag);
 /// Read all pushbutton state and return them in a uint8_t form
 uint8_t PushButton_Read(void) __attribute__((weak));
 
-#endif // __PUSHBUTTON_H
+#endif // __PUSH_BUTTON_H
